@@ -1,0 +1,64 @@
+import { Injectable } from '@nestjs/common';
+
+type Course = {
+  id: number;
+  title: string;
+  level: string;
+};
+
+type CreateCourseInput = {
+  title: string;
+  level: string;
+};
+
+type UpdateCourseInput = {
+  title?: string;
+  level?: string;
+};  
+
+@Injectable()
+export class CoursesService {
+    private courses: Course[] = [
+        {id: 1, title: 'NestJS Fundamentals', level: 'beginner'},
+        {id: 2, title: 'REST APIs with NestJS', level: 'beginner'},
+        {id: 3, title: 'NestJS Architecture', level: 'intermediate'},
+    ];
+
+    findAll(level?: string): Course[] {
+        if (!level) {
+            return this.courses;
+        }
+        return this.courses.filter((course )=>course.level ===level);
+    }
+
+    findOne(id: number): Course | undefined {
+        return this.courses.find(course => course.id === id);
+    }
+
+    create(imput: CreateCourseInput): Course {
+        const course: Course = {
+            id: Math.max(0,...this.courses.map((item) => item.id)) + 1,
+            title: imput.title,
+            level: imput.level,
+        };
+        this.courses.push(course);
+        return course    }
+
+    update(id: number, input: UpdateCourseInput): Course | undefined {
+        const course = this.findOne(id);
+        if (!course) {
+            return undefined;
+        }
+        Object.assign(course, input);
+        return course;
+    }
+
+    remove(id: number): boolean {
+        const index = this.courses.findIndex(course => course.id === id);
+        if (index === -1) {
+            return false;
+        }
+        const[removedCourse]= this.courses.splice(index, 1);
+        return removedCourse !== undefined;
+    }
+}
