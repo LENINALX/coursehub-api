@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CreateCourseDto } from './dto/create-course.dto.js';
+import { UpdateCourseDto } from './dto/update-course.dto.js';
 
 type Course = {
   id: number;
@@ -6,59 +8,54 @@ type Course = {
   level: string;
 };
 
-type CreateCourseInput = {
-  title: string;
-  level: string;
-};
-
-type UpdateCourseInput = {
-  title?: string;
-  level?: string;
-};  
-
 @Injectable()
 export class CoursesService {
-    private courses: Course[] = [
-        {id: 1, title: 'NestJS Fundamentals', level: 'beginner'},
-        {id: 2, title: 'REST APIs with NestJS', level: 'beginner'},
-        {id: 3, title: 'NestJS Architecture', level: 'intermediate'},
-    ];
+  private nextId = 4;
 
-    findAll(level?: string): Course[] {
-        if (!level) {
-            return this.courses;
-        }
-        return this.courses.filter((course )=>course.level ===level);
+  private courses: Course[] = [
+    { id: 1, title: 'NestJS Fundamentals', level: 'beginner' },
+    { id: 2, title: 'REST APIs with NestJS', level: 'beginner' },
+    { id: 3, title: 'NestJS Architecture', level: 'intermediate' },
+  ];
+
+  findAll(level?: string): Course[] {
+    if (!level) {
+      return this.courses;
     }
 
-    findOne(id: number): Course | undefined {
-        return this.courses.find(course => course.id === id);
+    return this.courses.filter((course) => course.level === level);
+  }
+
+  findOne(id: string): Course {
+    const course = this.courses.find((item) => item.id === Number(id));
+
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${id} was not found`);
     }
 
-    create(imput: CreateCourseInput): Course {
-        const course: Course = {
-            id: Math.max(0,...this.courses.map((item) => item.id)) + 1,
-            title: imput.title,
-            level: imput.level,
-        };
-        this.courses.push(course);
-        return course    }
+    return course;
+  }
 
-    update(id: number, input: UpdateCourseInput): Course | undefined {
-        const course = this.findOne(id);
-        if (!course) {
-            return undefined;
-        }
-        Object.assign(course, input);
-        return course;
-    }
+  create(createCourseDto: CreateCourseDto): Course {
+    const course: Course = {
+      id: this.nextId++,
+      ...createCourseDto,
+    };
 
-    remove(id: number): boolean {
-        const index = this.courses.findIndex(course => course.id === id);
-        if (index === -1) {
-            return false;
-        }
-        const[removedCourse]= this.courses.splice(index, 1);
-        return removedCourse !== undefined;
-    }
+    this.courses.push(course);
+    return course;
+  }
+
+  update(id: string, updateCourseDto: UpdateCourseDto): Course {
+    const course = this.findOne(id);
+    Object.assign(course, updateCourseDto);
+    return course;
+  }
+
+  remove(id: string): Course {
+    const course = this.findOne(id);
+    const index = this.courses.indexOf(course);
+    this.courses.splice(index, 1);
+    return course;
+  }
 }

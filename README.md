@@ -25,6 +25,62 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Courses API
+
+CourseHub administra cursos temporalmente en memoria. Los cuerpos de creación
+y actualización se validan antes de llegar al servicio.
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| `GET` | `/courses` | Lista los cursos; admite el filtro opcional `level`. |
+| `GET` | `/courses/:id` | Devuelve el curso (`200`) o `404` si no existe. |
+| `POST` | `/courses` | Crea un curso (`201`) o rechaza un cuerpo inválido (`400`). |
+| `PATCH` | `/courses/:id` | Actualiza solo los campos enviados (`200`), o responde `400`/`404`. |
+| `DELETE` | `/courses/:id` | Elimina y devuelve el curso (`200`), o responde `404`. |
+
+`POST /courses` requiere un `title` de texto no vacío y un `level` con uno de
+estos valores: `beginner`, `intermediate` o `advanced`.
+
+Petición válida, respuesta `201 Created`:
+
+```json
+{
+  "title": "Diseño de APIs",
+  "level": "intermediate"
+}
+```
+
+Un título vacío o nivel no permitido responde `400 Bad Request`:
+
+```json
+{
+  "title": "",
+  "level": "expert"
+}
+```
+
+Las propiedades no declaradas también responden `400 Bad Request`:
+
+```json
+{
+  "title": "Diseño de APIs",
+  "level": "intermediate",
+  "duration": 20
+}
+```
+
+`PATCH /courses/:id` acepta los mismos campos de forma opcional. Por ejemplo,
+esta petición cambia solo el nivel y mantiene el título:
+
+```json
+{
+  "level": "advanced"
+}
+```
+
+Los cursos se almacenan en un arreglo en memoria, por lo que se reinician al
+reiniciar la API.
+
 ## Project setup
 
 ```bash

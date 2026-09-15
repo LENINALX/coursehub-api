@@ -15,4 +15,17 @@ describe('CoursesService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  it('creates a course with the next available identifier', () => {
+    expect(
+      service.create({
+        title: 'Diseño de APIs',
+        level: 'intermediate',
+      }),
+    ).toEqual({
+      id: 4,
+      title: 'Diseño de APIs',
+      level: 'intermediate',
+    });
+  });
 });
