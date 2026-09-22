@@ -81,6 +81,129 @@ esta petición cambia solo el nivel y mantiene el título:
 Los cursos se almacenan en un arreglo en memoria, por lo que se reinician al
 reiniciar la API.
 
+## Students API
+
+CourseHub tambien administra estudiantes en memoria. Los cuerpos de creacion y
+actualizacion se validan antes de llegar al servicio.
+
+| Metodo | Ruta | Resultado |
+| --- | --- | --- |
+| `GET` | `/students` | Lista estudiantes; admite `career`, `semester` e `isActive`. |
+| `GET` | `/students/:id` | Devuelve un estudiante o `404` si no existe. |
+| `POST` | `/students` | Crea un estudiante validando los datos y el correo unico. |
+| `PATCH` | `/students/:id` | Actualiza los campos enviados. |
+| `PATCH` | `/students/:id/status` | Cambia el estado activo del estudiante. |
+| `DELETE` | `/students/:id` | Elimina un estudiante activo. |
+
+## Enrollments API
+
+Las matriculas se mantienen temporalmente en memoria con `id`, `studentId` y
+`courseId`. Todos los cuerpos y query strings usan el `ValidationPipe` global
+con `whitelist` y `forbidNonWhitelisted`; los identificadores de estudiante se
+validan con `ParseStudentIdPipe` y los demas identificadores con `ParseIntPipe`.
+
+| Metodo | Ruta | Resultado |
+| --- | --- | --- |
+| `POST` | `/enrollments` | Crea una matricula (`201`). |
+| `GET` | `/enrollments` | Lista matriculas; admite `studentId` y `courseId` combinables. |
+| `GET` | `/students/:studentId/enrollments` | Lista las matriculas de un estudiante existente. |
+| `GET` | `/courses/:courseId/enrollments` | Lista las matriculas de un curso existente. |
+| `DELETE` | `/enrollments/:id` | Cancela y devuelve la matricula (`200`). |
+
+### Demonstration
+
+Los siguientes pasos deben ejecutarse en una misma ejecucion de la API, ya que
+la informacion se reinicia al detener el servidor.
+
+Primero, cree un estudiante activo:
+
+```http
+POST /students
+Content-Type: application/json
+
+{
+  "name": "Ana Perez",
+  "email": "ana.perez@example.com",
+  "age": 20,
+  "career": "Ingenieria de Software",
+  "semester": 8,
+  "isActive": true
+}
+```
+
+Respuesta `201 Created`:
+
+```json
+{
+  "id": 1,
+  "name": "Ana Perez",
+  "email": "ana.perez@example.com",
+  "age": 20,
+  "career": "Ingenieria de Software",
+  "semester": 8,
+  "isActive": true
+}
+```
+
+Matricula valida en el curso inicial `1`:
+
+```http
+POST /enrollments
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "courseId": 1
+}
+```
+
+```json
+{
+  "id": 1,
+  "studentId": 1,
+  "courseId": 1
+}
+```
+
+Repetir el mismo `POST /enrollments` responde `409 Conflict` porque la
+combinacion `studentId` y `courseId` ya existe. Un identificador inexistente,
+por ejemplo `{ "studentId": 999, "courseId": 1 }`, responde `404 Not Found`.
+
+Para demostrar un estudiante inactivo, cambie su estado y vuelva a intentar la
+matricula:
+
+```http
+PATCH /students/1/status
+Content-Type: application/json
+
+{ "isActive": false }
+```
+
+```http
+POST /enrollments
+Content-Type: application/json
+
+{ "studentId": 1, "courseId": 2 }
+```
+
+La segunda solicitud responde `409 Conflict` con el mensaje
+`Inactive students cannot be enrolled`.
+
+Active de nuevo al estudiante, cree la matricula del curso `2` y consulte los
+filtros combinables:
+
+```http
+GET /enrollments?studentId=1&courseId=2
+GET /students/1/enrollments
+GET /courses/2/enrollments
+DELETE /enrollments/2
+```
+
+El `GET /enrollments?studentId=1&courseId=2` devuelve solamente la matricula
+coincidente y `DELETE /enrollments/2` responde `200 OK` con la matricula
+cancelada. Una segunda cancelacion del mismo identificador responde `404 Not
+Found`.
+
 ## Project setup
 
 ```bash
