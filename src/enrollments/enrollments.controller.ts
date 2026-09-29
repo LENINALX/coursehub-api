@@ -13,16 +13,16 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto.js';
 import { FindEnrollmentsQueryDto } from './dto/find-enrollments-query.dto.js';
 import { EnrollmentsService } from './enrollments.service.js';
 
-@Controller()
+@Controller('enrollments')
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
-  @Post('enrollments')
+  @Post()
   create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
     return this.enrollmentsService.create(createEnrollmentDto);
   }
 
-  @Get('enrollments')
+  @Get()
   findAll(@Query() filters: FindEnrollmentsQueryDto) {
     return this.enrollmentsService.findAll(filters);
   }
@@ -39,7 +39,7 @@ export class EnrollmentsController {
     return this.enrollmentsService.findByCourse(courseId);
   }
 
-  @Delete('enrollments/:id')
+  @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.enrollmentsService.remove(id);
   }
