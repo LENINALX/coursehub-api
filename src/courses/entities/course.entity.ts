@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm'; // 1
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm'; // 1
+import { Enrollment } from '../../enrollments/entiti/enrollment.entity.js';
 
 @Entity('courses') // 2
 export class Course { // 3
@@ -10,4 +11,7 @@ export class Course { // 3
 
   @Column() // 6
   level: string;
+
+  @OneToMany(() => Enrollment, (enrollment) => enrollment.course)
+  enrollments: Enrollment[];
 }

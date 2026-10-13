@@ -1,69 +1,113 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { Repository } from 'typeorm';
 import { vi } from 'vitest';
-import { CoursesService } from '../courses/courses.service.js';
-import { StudentsService } from '../students/students.service.js';
+import { Course } from '../courses/entities/course.entity.js';
+import { Student } from '../students/entities/student.entity.js';
+import { Enrollment } from './entiti/enrollment.entity.js';
 import { EnrollmentsService } from './enrollments.service.js';
 
 describe('EnrollmentsService', () => {
-  let studentsService: Pick<StudentsService, 'findOne'>;
-  let coursesService: Pick<CoursesService, 'findOne'>;
+  let studentsRepository: Pick<Repository<Student>, 'findOneBy'>;
+  let coursesRepository: Pick<Repository<Course>, 'findOneBy'>;
+  let enrollmentsRepository: Pick<
+    Repository<Enrollment>,
+    'findOne' | 'create' | 'save' | 'find' | 'findOneBy' | 'remove'
+  >;
   let service: EnrollmentsService;
 
   beforeEach(() => {
-    studentsService = {
-      findOne: vi.fn().mockReturnValue({ id: 1, isActive: true }),
+    studentsRepository = {
+      findOneBy: vi.fn().mockResolvedValue({ id: 1, isActive: true }),
     };
-    coursesService = {
-      findOne: vi.fn().mockReturnValue({ id: 1 }),
+    coursesRepository = {
+      findOneBy: vi.fn().mockResolvedValue({ id: 1 }),
+    };
+    enrollmentsRepository = {
+      findOne: vi.fn().mockResolvedValue(null),
+      create: vi.fn(({ student, course }) => ({ student, course })),
+      save: vi.fn().mockImplementation(async (enrollment) => ({
+        id: 1,
+        ...enrollment,
+      })),
+      find: vi.fn().mockResolvedValue([]),
+      findOneBy: vi.fn(),
+      remove: vi.fn().mockImplementation(async (enrollment) => enrollment),
     };
     service = new EnrollmentsService(
-      studentsService as StudentsService,
-      coursesService as CoursesService,
+      enrollmentsRepository as Repository<Enrollment>,
+      studentsRepository as Repository<Student>,
+      coursesRepository as Repository<Course>,
     );
   });
 
-  it('creates enrollments with consecutive identifiers', () => {
-    expect(service.create({ studentId: 1, courseId: 1 })).toEqual({
+  it('creates an enrollment after validating the student and course', async () => {
+    await expect(
+      service.create({ studentId: 1, courseId: 1 }),
+    ).resolves.toMatchObject({
       id: 1,
-      studentId: 1,
-      courseId: 1,
+      student: { id: 1 },
+      course: { id: 1 },
     });
   });
 
-  it('rejects duplicate student and course combinations', () => {
-    service.create({ studentId: 1, courseId: 1 });
+  it('rejects duplicate student and course combinations', async () => {
+    vi.mocked(enrollmentsRepository.findOne).mockResolvedValue({
+      id: 1,
+    } as Enrollment);
 
-    expect(() => service.create({ studentId: 1, courseId: 1 })).toThrow(
-      ConflictException,
-    );
+    await expect(
+      service.create({ studentId: 1, courseId: 1 }),
+    ).rejects.toThrow(ConflictException);
   });
 
-  it('rejects inactive students', () => {
-    studentsService.findOne = vi.fn().mockReturnValue({ id: 1, isActive: false });
+  it('rejects inactive students', async () => {
+    vi.mocked(studentsRepository.findOneBy).mockResolvedValue({
+      id: 1,
+      isActive: false,
+    } as Student);
 
-    expect(() => service.create({ studentId: 1, courseId: 1 })).toThrow(
-      'Inactive students cannot be enrolled',
-    );
+    await expect(
+      service.create({ studentId: 1, courseId: 1 }),
+    ).rejects.toThrow(BadRequestException);
   });
 
-  it('propagates a not found error for an unknown course', () => {
-    coursesService.findOne = vi.fn().mockImplementation(() => {
-      throw new NotFoundException('Course with ID 99 was not found');
-    });
+  it('rejects unknown students and courses', async () => {
+    vi.mocked(studentsRepository.findOneBy).mockResolvedValueOnce(null);
+    await expect(
+      service.create({ studentId: 99, courseId: 1 }),
+    ).rejects.toThrow(NotFoundException);
 
-    expect(() => service.create({ studentId: 1, courseId: 99 })).toThrow(
-      NotFoundException,
-    );
+    vi.mocked(coursesRepository.findOneBy).mockResolvedValueOnce(null);
+    await expect(
+      service.create({ studentId: 1, courseId: 99 }),
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it('filters and cancels enrollments', () => {
-    service.create({ studentId: 1, courseId: 1 });
-    service.create({ studentId: 1, courseId: 2 });
-
-    expect(service.findAll({ studentId: '1', courseId: '2' })).toEqual([
-      { id: 2, studentId: 1, courseId: 2 },
+  it('filters and removes enrollments', async () => {
+    const matchingEnrollment = { id: 2 } as Enrollment;
+    vi.mocked(enrollmentsRepository.find).mockResolvedValue([
+      matchingEnrollment,
     ]);
-    expect(service.remove(2)).toEqual({ id: 2, studentId: 1, courseId: 2 });
-    expect(service.findAll({})).toEqual([{ id: 1, studentId: 1, courseId: 1 }]);
+
+    await expect(
+      service.findAll({ studentId: '1', courseId: '2' }),
+    ).resolves.toEqual([matchingEnrollment]);
+    expect(enrollmentsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { student: { id: 1 }, course: { id: 2 } },
+      }),
+    );
+
+    vi.mocked(enrollmentsRepository.findOneBy).mockResolvedValue(
+      matchingEnrollment,
+    );
+    await expect(service.remove(2)).resolves.toBe(matchingEnrollment);
+    expect(enrollmentsRepository.remove).toHaveBeenCalledWith(
+      matchingEnrollment,
+    );
   });
 });

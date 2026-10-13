@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CoursesModule } from './courses/courses.module.js';
+import { Course } from './courses/entities/course.entity.js';
+import { Enrollment } from './enrollments/entiti/enrollment.entity.js';
+import { Student } from './students/entities/student.entity.js';
 
 @Module({
   imports: [
@@ -14,6 +17,7 @@ import { CoursesModule } from './courses/courses.module.js';
         username: config.getOrThrow('DATABASE_USER'),
         password: config.getOrThrow('DATABASE_PASSWORD'),
         database: config.getOrThrow('DATABASE_NAME'),
+        entities: [Course, Student, Enrollment],
         autoLoadEntities: true, synchronize: true,
       }),
     }),
