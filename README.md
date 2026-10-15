@@ -32,7 +32,7 @@ y actualización se validan antes de llegar al servicio.
 
 | Método | Ruta | Resultado |
 | --- | --- | --- |
-| `GET` | `/courses` | Lista los cursos; admite el filtro opcional `level`. |
+| `GET` | `/courses` | Lista cursos con `level`, paginación (`page`, `limit`) y ordenamiento seguro (`sortBy`, `order`). |
 | `GET` | `/courses/:id` | Devuelve el curso (`200`) o `404` si no existe. |
 | `POST` | `/courses` | Crea un curso (`201`) o rechaza un cuerpo inválido (`400`). |
 | `PATCH` | `/courses/:id` | Actualiza solo los campos enviados (`200`), o responde `400`/`404`. |
@@ -81,7 +81,9 @@ esta petición cambia solo el nivel y mantiene el título:
 Los cursos se almacenan en un arreglo en memoria, por lo que se reinician al
 reiniciar la API.
 
-## Students API
+'Cursos acepta `page` (por defecto `1`), `limit` (por defecto `10`, máximo `50`), `sortBy` (`id`, `title` o `level`) y `order` (`ASC` o `DESC`). La respuesta del listado tiene la forma `{ items, meta: { total, page, limit, totalPages } }`.
+
+## Students API'
 
 CourseHub tambien administra estudiantes en memoria. Los cuerpos de creacion y
 actualizacion se validan antes de llegar al servicio.
@@ -95,7 +97,9 @@ actualizacion se validan antes de llegar al servicio.
 | `PATCH` | `/students/:id/status` | Cambia el estado activo del estudiante. |
 | `DELETE` | `/students/:id` | Elimina un estudiante activo. |
 
-## Enrollments API
+'`GET /enrollments` devuelve `{ items, meta: { total, page, limit, totalPages } }`. `search` busca sin distinguir mayúsculas en el nombre del estudiante y el título del curso; los filtros se combinan y los valores de búsqueda se parametrizan en la consulta. `activeOnly=true` limita a estudiantes activos.
+
+## Enrollments API'
 
 Las matriculas se mantienen temporalmente en memoria con `id`, `studentId` y
 `courseId`. Todos los cuerpos y query strings usan el `ValidationPipe` global
@@ -105,7 +109,7 @@ validan con `ParseStudentIdPipe` y los demas identificadores con `ParseIntPipe`.
 | Metodo | Ruta | Resultado |
 | --- | --- | --- |
 | `POST` | `/enrollments` | Crea una matricula (`201`). |
-| `GET` | `/enrollments` | Lista matriculas; admite `studentId` y `courseId` combinables. |
+| `GET` | `/enrollments` | Busca por nombre de estudiante o título de curso y combina `studentId`, `courseId`, `activeOnly`, `page` y `limit`. |
 | `GET` | `/students/:studentId/enrollments` | Lista las matriculas de un estudiante existente. |
 | `GET` | `/courses/:courseId/enrollments` | Lista las matriculas de un curso existente. |
 | `DELETE` | `/enrollments/:id` | Cancela y devuelve la matricula (`200`). |
@@ -291,3 +295,4 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+

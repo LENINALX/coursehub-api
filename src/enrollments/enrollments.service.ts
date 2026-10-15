@@ -55,19 +55,46 @@ export class EnrollmentsService {
     );
   }
 
-  findAll(filters: FindEnrollmentsQueryDto): Promise<Enrollment[]> {
-    return this.enrollmentsRepository.find({
-      where: {
-        ...(filters.studentId
-          ? { student: { id: Number(filters.studentId) } }
-          : {}),
-        ...(filters.courseId
-          ? { course: { id: Number(filters.courseId) } }
-          : {}),
+  async findAll(query: FindEnrollmentsQueryDto) {
+    const qb = this.enrollmentsRepository
+      .createQueryBuilder('enrollment')
+      .leftJoinAndSelect('enrollment.student', 'student')
+      .leftJoinAndSelect('enrollment.course', 'course');
+
+    if (query.search?.trim()) {
+      qb.andWhere(
+        '(student.name ILIKE :search OR course.title ILIKE :search)',
+        { search: `%${query.search.trim()}%` },
+      );
+    }
+    if (query.studentId) {
+      qb.andWhere('student.id = :studentId', {
+        studentId: Number(query.studentId),
+      });
+    }
+    if (query.courseId) {
+      qb.andWhere('course.id = :courseId', {
+        courseId: Number(query.courseId),
+      });
+    }
+    if (query.activeOnly === 'true') {
+      qb.andWhere('student.isActive = :active', { active: true });
+    }
+
+    qb.orderBy('enrollment.id', 'ASC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
+
+    const [items, total] = await qb.getManyAndCount();
+    return {
+      items,
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.ceil(total / query.limit),
       },
-      relations: { student: true, course: true },
-      order: { id: 'ASC' },
-    });
+    };
   }
 
   async findByStudent(studentId: number): Promise<Enrollment[]> {
