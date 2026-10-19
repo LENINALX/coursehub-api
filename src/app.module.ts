@@ -8,6 +8,9 @@ import { Enrollment } from './enrollments/entiti/enrollment.entity.js';
 import { EnrollmentsModule } from './enrollments/enrollments.module.js';
 import { Student } from './students/entities/student.entity.js';
 import { StudentsModule } from './students/students.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { User } from './users/entities/user.entity.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -33,13 +36,15 @@ import { StudentsModule } from './students/students.module.js';
         username: config.getOrThrow('DATABASE_USER'),
         password: config.getOrThrow('DATABASE_PASSWORD'),
         database: config.getOrThrow('DATABASE_NAME'),
-        entities: [Course, Student, Enrollment],
+        entities: [Course, Student, Enrollment, User],
         synchronize: config.getOrThrow<string>('NODE_ENV') === 'development',
       }),
     }),
     CoursesModule,
     StudentsModule,
     EnrollmentsModule,
+    UsersModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

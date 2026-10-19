@@ -230,6 +230,27 @@ coincidente y `DELETE /enrollments/2` responde `200 OK` con la matricula
 cancelada. Una segunda cancelacion del mismo identificador responde `404 Not
 Found`.
 
+## Registro de usuarios
+
+`POST /auth/register` crea una cuenta independiente de los estudiantes. El
+correo se normaliza a minúsculas; la contraseña debe tener entre 8 y 72
+caracteres y se guarda como hash bcrypt con 12 rondas. La respuesta solo incluye
+`id`, `email` y `createdAt`; nunca devuelve la contraseña ni su hash. Un correo
+repetido responde `409 Conflict`.
+
+```http
+POST /auth/register
+Content-Type: application/json
+
+{
+  "email": "ana@example.com",
+  "password": "aprendo-nest-2026"
+}
+```
+
+Esta sesión implementa registro seguro; todavía no agrega inicio de sesión,
+JWT ni autorización.
+
 ## Project setup
 
 ```bash
