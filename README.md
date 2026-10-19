@@ -25,9 +25,30 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Configuración local
+
+Requisitos: Node.js 24 y PostgreSQL. Instala dependencias y crea tu archivo de
+configuración local a partir de la plantilla:
+
+```bash
+npm install
+cp .env.example .env
+```
+
+En Windows PowerShell, usa `Copy-Item .env.example .env`. Edita `.env` con tus
+propios datos locales de PostgreSQL. El archivo `.env` está ignorado por Git;
+no lo compartas ni lo subas. `.env.example` contiene solo valores de ejemplo.
+
+Variables requeridas: `DATABASE_HOST`, `DATABASE_NAME`, `DATABASE_USER` y
+`DATABASE_PASSWORD`. `DATABASE_PORT` usa `5432` por defecto, `PORT` usa `3000` y
+`NODE_ENV` usa `development`. Se aceptan los ambientes `development`, `test` y
+`production`; TypeORM sincroniza el esquema únicamente en `development`.
+Configura las variables con valores reales y seguros en el entorno de
+despliegue, sin versionar credenciales.
+
 ## Courses API
 
-CourseHub administra cursos temporalmente en memoria. Los cuerpos de creación
+CourseHub administra cursos persistidos en PostgreSQL. Los cuerpos de creación
 y actualización se validan antes de llegar al servicio.
 
 | Método | Ruta | Resultado |
@@ -78,15 +99,14 @@ esta petición cambia solo el nivel y mantiene el título:
 }
 ```
 
-Los cursos se almacenan en un arreglo en memoria, por lo que se reinician al
-reiniciar la API.
+Los cursos se almacenan en PostgreSQL y permanecen al reiniciar la API.
 
-'Cursos acepta `page` (por defecto `1`), `limit` (por defecto `10`, máximo `50`), `sortBy` (`id`, `title` o `level`) y `order` (`ASC` o `DESC`). La respuesta del listado tiene la forma `{ items, meta: { total, page, limit, totalPages } }`.
+Cursos acepta `page` (por defecto `1`), `limit` (por defecto `10`, máximo `50`), `sortBy` (`id`, `title` o `level`) y `order` (`ASC` o `DESC`). La respuesta del listado tiene la forma `{ items, meta: { total, page, limit, totalPages } }`.
 
-## Students API'
+## Students API
 
-CourseHub tambien administra estudiantes en memoria. Los cuerpos de creacion y
-actualizacion se validan antes de llegar al servicio.
+CourseHub también administra estudiantes en PostgreSQL. Los cuerpos de creación
+y actualización se validan antes de llegar al servicio.
 
 | Metodo | Ruta | Resultado |
 | --- | --- | --- |
@@ -97,14 +117,17 @@ actualizacion se validan antes de llegar al servicio.
 | `PATCH` | `/students/:id/status` | Cambia el estado activo del estudiante. |
 | `DELETE` | `/students/:id` | Elimina un estudiante activo. |
 
-'`GET /enrollments` devuelve `{ items, meta: { total, page, limit, totalPages } }`. `search` busca sin distinguir mayúsculas en el nombre del estudiante y el título del curso; los filtros se combinan y los valores de búsqueda se parametrizan en la consulta. `activeOnly=true` limita a estudiantes activos.
+## Enrollments API
 
-## Enrollments API'
+Las matrículas se almacenan en PostgreSQL y relacionan estudiantes con cursos.
+Todos los cuerpos y query strings usan el `ValidationPipe` global con `whitelist`
+y `forbidNonWhitelisted`; los identificadores de estudiante se validan con
+`ParseStudentIdPipe` y los demás identificadores con `ParseIntPipe`.
 
-Las matriculas se mantienen temporalmente en memoria con `id`, `studentId` y
-`courseId`. Todos los cuerpos y query strings usan el `ValidationPipe` global
-con `whitelist` y `forbidNonWhitelisted`; los identificadores de estudiante se
-validan con `ParseStudentIdPipe` y los demas identificadores con `ParseIntPipe`.
+`GET /enrollments` devuelve `{ items, meta: { total, page, limit, totalPages } }`.
+`search` busca sin distinguir mayúsculas en el nombre del estudiante y el título
+del curso; los filtros se combinan y los valores de búsqueda se parametrizan en
+la consulta. `activeOnly=true` limita a estudiantes activos.
 
 | Metodo | Ruta | Resultado |
 | --- | --- | --- |
@@ -116,8 +139,7 @@ validan con `ParseStudentIdPipe` y los demas identificadores con `ParseIntPipe`.
 
 ### Demonstration
 
-Los siguientes pasos deben ejecutarse en una misma ejecucion de la API, ya que
-la informacion se reinicia al detener el servidor.
+Los siguientes pasos usan datos persistidos en PostgreSQL.
 
 Primero, cree un estudiante activo:
 

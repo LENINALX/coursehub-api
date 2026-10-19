@@ -13,12 +13,14 @@ export class Enrollment {
     onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'student_id' })
-  student: Student;
+  student: Relation<Student>;
 
   @ManyToOne(() => Course, (course) => course.enrollments, {
     nullable: false,
     onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'course_id' })
-  course: Course;
+  course: Relation<Course>;
 }
+
+type Relation<T> = T;
