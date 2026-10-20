@@ -230,7 +230,7 @@ coincidente y `DELETE /enrollments/2` responde `200 OK` con la matricula
 cancelada. Una segunda cancelacion del mismo identificador responde `404 Not
 Found`.
 
-## Registro de usuarios
+## Registro e inicio de sesión
 
 `POST /auth/register` crea una cuenta independiente de los estudiantes. El
 correo se normaliza a minúsculas; la contraseña debe tener entre 8 y 72
@@ -248,8 +248,26 @@ Content-Type: application/json
 }
 ```
 
-Esta sesión implementa registro seguro; todavía no agrega inicio de sesión,
-JWT ni autorización.
+El registro implementa almacenamiento seguro de contraseñas. El inicio de
+sesión valida credenciales, pero todavía no emite JWT ni aplica autorización.
+
+`POST /auth/login` valida las credenciales de una cuenta registrada. Responde
+`200 OK` con `id`, `email` y `createdAt` cuando son correctas. Un correo
+inexistente y una contraseña incorrecta responden ambos `401 Unauthorized` con
+el mensaje genérico `Invalid credentials`. Un cuerpo inválido responde `400`.
+
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@example.com",
+  "password": "aprendo-nest-2026"
+}
+```
+
+El hash se carga solo para la consulta de autenticación y se compara con
+`bcrypt.compare`; la ruta aún no emite JWT ni aplica autorización.
 
 ## Project setup
 

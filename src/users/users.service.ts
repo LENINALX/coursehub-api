@@ -14,6 +14,14 @@ export class UsersService {
     return this.usersRepository.findOneBy({ email });
   }
 
+  findByEmailWithPassword(email: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email })
+      .getOne();
+  }
+
   async create(email: string, passwordHash: string): Promise<User> {
     const existing = await this.findByEmail(email);
     if (existing) {
