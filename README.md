@@ -40,9 +40,12 @@ propios datos locales de PostgreSQL. El archivo `.env` está ignorado por Git;
 no lo compartas ni lo subas. `.env.example` contiene solo valores de ejemplo.
 
 Variables requeridas: `DATABASE_HOST`, `DATABASE_NAME`, `DATABASE_USER` y
-`DATABASE_PASSWORD`. `DATABASE_PORT` usa `5432` por defecto, `PORT` usa `3000` y
-`NODE_ENV` usa `development`. Se aceptan los ambientes `development`, `test` y
-`production`; TypeORM sincroniza el esquema únicamente en `development`.
+`DATABASE_PASSWORD` y `JWT_SECRET`. El secreto JWT debe tener al menos 32
+caracteres y se configura únicamente en `.env` local o en el entorno seguro de
+despliegue. `DATABASE_PORT` usa `5432` por defecto, `PORT` usa `3000`,
+`JWT_EXPIRES_IN` usa `15m` y `NODE_ENV` usa `development`. Se aceptan los
+ambientes `development`, `test` y `production`; TypeORM sincroniza el esquema
+únicamente en `development`.
 Configura las variables con valores reales y seguros en el entorno de
 despliegue, sin versionar credenciales.
 
@@ -249,10 +252,12 @@ Content-Type: application/json
 ```
 
 El registro implementa almacenamiento seguro de contraseñas. El inicio de
-sesión valida credenciales, pero todavía no emite JWT ni aplica autorización.
+sesión valida credenciales y emite un token de acceso firmado.
 
 `POST /auth/login` valida las credenciales de una cuenta registrada. Responde
-`200 OK` con `id`, `email` y `createdAt` cuando son correctas. Un correo
+`200 OK` con `accessToken` y el usuario seguro cuando son correctas. El token
+incluye solamente `sub` y `email` como datos propios, además de `iat` y `exp`
+generados al firmarlo. Su vigencia predeterminada es 15 minutos. Un correo
 inexistente y una contraseña incorrecta responden ambos `401 Unauthorized` con
 el mensaje genérico `Invalid credentials`. Un cuerpo inválido responde `400`.
 
@@ -267,7 +272,9 @@ Content-Type: application/json
 ```
 
 El hash se carga solo para la consulta de autenticación y se compara con
-`bcrypt.compare`; la ruta aún no emite JWT ni aplica autorización.
+`bcrypt.compare`. El JWT está firmado, no cifrado: no publiques ni compartas el
+token, y no incluyas secretos ni contraseñas en su payload. Esta etapa emite
+tokens, pero todavía no implementa guards ni autorización.
 
 ## Project setup
 
