@@ -46,6 +46,10 @@ despliegue. `DATABASE_PORT` usa `5432` por defecto, `PORT` usa `3000`,
 `JWT_EXPIRES_IN` usa `15m` y `NODE_ENV` usa `development`. Se aceptan los
 ambientes `development`, `test` y `production`; TypeORM sincroniza el esquema
 únicamente en `development`.
+`CORS_ORIGINS` es una lista separada por comas; en desarrollo su valor de
+ejemplo permite únicamente `http://localhost:5173`. En producción la variable
+es obligatoria y debe contener solo los orígenes HTTPS exactos de los clientes
+autorizados; no admite `*` ni rutas.
 Configura las variables con valores reales y seguros en el entorno de
 despliegue, sin versionar credenciales.
 
@@ -58,9 +62,9 @@ y actualización se validan antes de llegar al servicio.
 | --- | --- | --- |
 | `GET` | `/courses` | Lista cursos con `level`, paginación (`page`, `limit`) y ordenamiento seguro (`sortBy`, `order`). |
 | `GET` | `/courses/:id` | Devuelve el curso (`200`) o `404` si no existe. |
-| `POST` | `/courses` | Crea un curso (`201`) o rechaza un cuerpo inválido (`400`). |
-| `PATCH` | `/courses/:id` | Actualiza solo los campos enviados (`200`), o responde `400`/`404`. |
-| `DELETE` | `/courses/:id` | Elimina y devuelve el curso (`200`), o responde `404`. |
+| `POST` | `/courses` | Requiere JWT; crea el curso y registra al usuario autenticado como propietario (`201`) o rechaza un cuerpo inválido (`400`). |
+| `PATCH` | `/courses/:id` | Requiere rol `admin` o `teacher`; un docente solo actualiza sus propios cursos. |
+| `DELETE` | `/courses/:id` | Requiere rol `admin`; responde `401` sin identidad, `403` sin rol autorizado o `404` si no existe. |
 
 `POST /courses` requiere un `title` de texto no vacío y un `level` con uno de
 estos valores: `beginner`, `intermediate` o `advanced`.
@@ -235,11 +239,24 @@ Found`.
 
 ## Registro e inicio de sesión
 
-`POST /auth/register` crea una cuenta independiente de los estudiantes. El
-correo se normaliza a minúsculas; la contraseña debe tener entre 8 y 72
+`POST /auth/register` crea una cuenta con el rol de menor privilegio, `student`.
+El cliente no puede enviar ni elegir el rol en el registro. Para preparar
+cuentas de práctica, cambia los roles directamente en una base local controlada
+después de registrarlas; nunca concedas roles desde un campo recibido por la
+API. Por ejemplo, en una base local de práctica:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';
+UPDATE users SET role = 'teacher' WHERE email = 'docente@example.com';
+```
+
+Después de cambiar el rol, inicia sesión de nuevo para obtener un JWT con el
+rol actualizado.
+
+El correo se normaliza a minúsculas; la contraseña debe tener entre 8 y 72
 caracteres y se guarda como hash bcrypt con 12 rondas. La respuesta solo incluye
-`id`, `email` y `createdAt`; nunca devuelve la contraseña ni su hash. Un correo
-repetido responde `409 Conflict`.
+`id`, `email`, `role` y `createdAt`; nunca devuelve la contraseña ni su hash.
+Un correo repetido responde `409 Conflict`.
 
 ```http
 POST /auth/register
@@ -256,8 +273,10 @@ sesión valida credenciales y emite un token de acceso firmado.
 
 `POST /auth/login` valida las credenciales de una cuenta registrada. Responde
 `200 OK` con `accessToken` y el usuario seguro cuando son correctas. El token
-incluye solamente `sub` y `email` como datos propios, además de `iat` y `exp`
-generados al firmarlo. Su vigencia predeterminada es 15 minutos. Un correo
+incluye `sub`, `email` y `role` como datos propios, además de `iat` y `exp`
+generados al firmarlo. Su vigencia predeterminada es 15 minutos. El endpoint
+permite hasta cinco solicitudes por minuto por cliente; al exceder el límite
+responde `429 Too Many Requests`. Un correo
 inexistente y una contraseña incorrecta responden ambos `401 Unauthorized` con
 el mensaje genérico `Invalid credentials`. Un cuerpo inválido responde `400`.
 
@@ -273,8 +292,33 @@ Content-Type: application/json
 
 El hash se carga solo para la consulta de autenticación y se compara con
 `bcrypt.compare`. El JWT está firmado, no cifrado: no publiques ni compartas el
-token, y no incluyas secretos ni contraseñas en su payload. Esta etapa emite
-tokens, pero todavía no implementa guards ni autorización.
+token, y no incluyas secretos ni contraseñas en su payload.
+
+`GET /auth/me` requiere `Authorization: Bearer <accessToken>` y devuelve
+`{ "id": 1, "email": "ana@example.com", "role": "student" }`. Un encabezado ausente, un token
+alterado o uno vencido responde `401 Unauthorized`. La estrategia JWT valida la
+firma y la expiración y prepara una identidad segura en `request.user`.
+
+Los roles válidos son `admin`, `teacher` y `student`. `DELETE /courses/:id`
+requiere `admin`; `PATCH /courses/:id` acepta `admin` o `teacher`, pero un
+docente solo puede modificar cursos cuyo `createdByUserId` coincide con su
+identidad autenticada. Sin JWT la respuesta es `401`; con identidad válida
+pero sin el rol requerido o sin propiedad, es `403`. La propiedad se asigna
+desde el token al crear el curso y nunca desde el cuerpo de la petición.
+
+La aplicación aplica CORS únicamente a los orígenes enumerados en
+`CORS_ORIGINS`, con métodos `GET`, `POST`, `PATCH` y `DELETE`. CORS controla qué
+sitios web pueden leer respuestas desde un navegador; no sustituye autenticación
+ni autorización. No uses `*` como origen permitido.
+
+**Producción requiere HTTPS/TLS.** Termina TLS en un proxy inverso, balanceador
+o plataforma de despliegue y permite únicamente los orígenes HTTPS del cliente
+en `CORS_ORIGINS`. No envíes tokens Bearer por HTTP fuera del desarrollo local.
+Los secretos se configuran en el entorno seguro de despliegue y no se versionan.
+Como TypeORM solo sincroniza en desarrollo, aplica
+[la migración de roles y propiedad](./database/migrations/20261117_roles_and_course_ownership.sql)
+en cada entorno antes de desplegar, por ejemplo con
+`psql "$DATABASE_URL" -f database/migrations/20261117_roles_and_course_ownership.sql`.
 
 ## Project setup
 
@@ -363,4 +407,3 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-

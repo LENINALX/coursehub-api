@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import Joi from 'joi';
 import { CoursesModule } from './courses/courses.module.js';
@@ -11,6 +12,7 @@ import { StudentsModule } from './students/students.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { User } from './users/entities/user.entity.js';
 import { UsersModule } from './users/users.module.js';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -30,8 +32,10 @@ import { UsersModule } from './users/users.module.js';
         JWT_EXPIRES_IN: Joi.string()
           .pattern(/^\d+[smhd]$/)
           .default('15m'),
+        CORS_ORIGINS: Joi.string().default('http://localhost:5173'),
       }),
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -50,5 +54,6 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     AuthModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
+  let authorization: string;
+  let adminAuthorization: string;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,6 +19,17 @@ describe('AppController (e2e)', () => {
       new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
     );
     await app.init();
+    const jwtService = app.get(JwtService);
+    authorization = `Bearer ${await jwtService.signAsync({
+      sub: 1,
+      email: 'e2e@example.com',
+      role: 'teacher',
+    })}`;
+    adminAuthorization = `Bearer ${await jwtService.signAsync({
+      sub: 2,
+      email: 'admin@example.com',
+      role: 'admin',
+    })}`;
   });
 
   it('/ (GET)', () => {
@@ -29,14 +42,21 @@ describe('AppController (e2e)', () => {
   it('/courses (POST) creates a valid course', () => {
     return request(app.getHttpServer())
       .post('/courses')
+      .set('Authorization', authorization)
       .send({ title: 'Diseño de APIs', level: 'intermediate' })
       .expect(201)
-      .expect({ id: 4, title: 'Diseño de APIs', level: 'intermediate' });
+      .expect({
+        id: 4,
+        title: 'Diseño de APIs',
+        level: 'intermediate',
+        createdByUserId: 1,
+      });
   });
 
   it('/courses (POST) rejects an empty title', () => {
     return request(app.getHttpServer())
       .post('/courses')
+      .set('Authorization', authorization)
       .send({ title: '', level: 'beginner' })
       .expect(400);
   });
@@ -44,6 +64,7 @@ describe('AppController (e2e)', () => {
   it('/courses (POST) rejects an unsupported level', () => {
     return request(app.getHttpServer())
       .post('/courses')
+      .set('Authorization', authorization)
       .send({ title: 'Diseño de APIs', level: 'expert' })
       .expect(400);
   });
@@ -51,6 +72,7 @@ describe('AppController (e2e)', () => {
   it('/courses (POST) rejects unexpected fields', () => {
     return request(app.getHttpServer())
       .post('/courses')
+      .set('Authorization', authorization)
       .send({ title: 'Diseño de APIs', level: 'intermediate', duration: 20 })
       .expect(400);
   });
@@ -60,14 +82,25 @@ describe('AppController (e2e)', () => {
 
     await request(server)
       .patch('/courses/1')
+      .set('Authorization', adminAuthorization)
       .send({ level: 'advanced' })
       .expect(200)
-      .expect({ id: 1, title: 'NestJS Fundamentals', level: 'advanced' });
+      .expect({
+        id: 1,
+        title: 'NestJS Fundamentals',
+        level: 'advanced',
+        createdByUserId: null,
+      });
 
     await request(server)
       .get('/courses/1')
       .expect(200)
-      .expect({ id: 1, title: 'NestJS Fundamentals', level: 'advanced' });
+      .expect({
+        id: 1,
+        title: 'NestJS Fundamentals',
+        level: 'advanced',
+        createdByUserId: null,
+      });
   });
 
   it('/courses/:id (PATCH) rejects an unsupported level', async () => {
@@ -75,18 +108,25 @@ describe('AppController (e2e)', () => {
 
     await request(server)
       .patch('/courses/1')
+      .set('Authorization', adminAuthorization)
       .send({ level: 'expert' })
       .expect(400);
 
     await request(server)
       .get('/courses/1')
       .expect(200)
-      .expect({ id: 1, title: 'NestJS Fundamentals', level: 'beginner' });
+      .expect({
+        id: 1,
+        title: 'NestJS Fundamentals',
+        level: 'beginner',
+        createdByUserId: null,
+      });
   });
 
   it('/courses/:id (PATCH) returns 404 for a missing course', () => {
     return request(app.getHttpServer())
       .patch('/courses/999')
+      .set('Authorization', adminAuthorization)
       .send({ level: 'advanced' })
       .expect(404);
   });
@@ -96,11 +136,20 @@ describe('AppController (e2e)', () => {
 
     await request(server)
       .delete('/courses/1')
+      .set('Authorization', adminAuthorization)
       .expect(200)
-      .expect({ id: 1, title: 'NestJS Fundamentals', level: 'beginner' });
+      .expect({
+        id: 1,
+        title: 'NestJS Fundamentals',
+        level: 'beginner',
+        createdByUserId: null,
+      });
 
     await request(server).get('/courses/1').expect(404);
-    await request(server).delete('/courses/1').expect(404);
+    await request(server)
+      .delete('/courses/1')
+      .set('Authorization', adminAuthorization)
+      .expect(404);
   });
 
   it('/students (POST) registers a student and rejects a duplicate email', async () => {
