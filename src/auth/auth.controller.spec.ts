@@ -13,6 +13,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { UpdateCourseUseCase } from '../courses/use-cases/update-course.use-case.js';
 
 const JWT_SECRET = 'local-test-secret-with-at-least-32-characters';
 
@@ -61,9 +62,12 @@ describe('JWT protected routes', () => {
           provide: CoursesService,
           useValue: {
             create: createCourse,
-            update: updateCourse,
             remove: removeCourse,
           },
+        },
+        {
+          provide: UpdateCourseUseCase,
+          useValue: { execute: updateCourse },
         },
       ],
     }).compile();
@@ -106,9 +110,8 @@ describe('JWT protected routes', () => {
   it('rejects missing and altered tokens on GET /auth/me', async () => {
     const token = await createToken();
     const [header, payload, signature] = token.split('.');
-    const alteredSignature = signature?.replace(
-      /^./,
-      (character) => (character === 'a' ? 'b' : 'a'),
+    const alteredSignature = signature?.replace(/^./, (character) =>
+      character === 'a' ? 'b' : 'a',
     );
     const alteredToken = `${header}.${payload}.${alteredSignature}`;
 
@@ -218,7 +221,7 @@ describe('JWT protected routes', () => {
       .expect(200);
 
     expect(updateCourse).toHaveBeenCalledWith(
-      '1',
+      1,
       { level: 'advanced' },
       { id: 9, email: 'ana@example.com', role: UserRole.TEACHER },
     );

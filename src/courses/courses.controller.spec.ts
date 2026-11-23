@@ -1,9 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
+import { ForbiddenException } from '@nestjs/common';
+import { UserRole } from '../users/user-role.enum.js';
 import { CoursesController } from './courses.controller.js';
-import { CoursesService } from './courses.service.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { Course } from './entities/course.entity.js';
+import { UpdateCourseUseCase } from './use-cases/update-course.use-case.js';
 
 describe('CoursesController', () => {
   let controller: CoursesController;
@@ -11,27 +10,55 @@ describe('CoursesController', () => {
     findAll: vi.fn(),
     findOne: vi.fn(),
     create: vi.fn(),
-    update: vi.fn(),
     remove: vi.fn(),
+  };
+  const updateCourseUseCase = {
+    execute: vi.fn<UpdateCourseUseCase['execute']>(),
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        PassportModule.register({ defaultStrategy: 'jwt' }),
-        JwtModule.register({ secret: 'test-secret' }),
-      ],
-      controllers: [CoursesController],
-      providers: [
-        RolesGuard,
-        { provide: CoursesService, useValue: coursesService },
-      ],
-    }).compile();
-
-    controller = module.get<CoursesController>(CoursesController);
+    vi.clearAllMocks();
+    controller = new CoursesController(coursesService, updateCourseUseCase);
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  it('delegates update with the parsed ID, DTO, and authenticated actor', async () => {
+    const actor = {
+      id: 4,
+      email: 'teacher@example.com',
+      role: UserRole.TEACHER,
+    };
+    const dto = { title: 'NestJS avanzado' };
+    const updatedCourse: Course = {
+      id: 7,
+      title: dto.title,
+      level: 'beginner',
+      createdByUserId: 4,
+      enrollments: [],
+    };
+    updateCourseUseCase.execute.mockResolvedValue(updatedCourse);
+
+    await expect(
+      controller.update(7, dto, { user: actor }),
+    ).resolves.toEqual(updatedCourse);
+    expect(updateCourseUseCase.execute).toHaveBeenCalledWith(7, dto, actor);
+  });
+
+  it('propagates business errors from the update use case', async () => {
+    const forbidden = new ForbiddenException('You cannot modify this course');
+    updateCourseUseCase.execute.mockRejectedValue(forbidden);
+
+    await expect(
+      controller.update(
+        7,
+        { title: 'Attempted change' },
+        {
+          user: {
+            id: 9,
+            email: 'other-teacher@example.com',
+            role: UserRole.TEACHER,
+          },
+        },
+      ),
+    ).rejects.toBe(forbidden);
   });
 });

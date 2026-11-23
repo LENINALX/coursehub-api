@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException } from '@nestjs/common';
 import { Course } from './entities/course.entity.js';
 import { CoursesService } from './courses.service.js';
 import { UserRole } from '../users/user-role.enum.js';
@@ -54,42 +53,5 @@ describe('CoursesService', () => {
       level: 'intermediate',
       createdByUserId: 2,
     });
-  });
-
-  it('rejects a teacher updating a course owned by someone else', async () => {
-    coursesRepository.findOneBy.mockResolvedValue({
-      id: 1,
-      title: 'Course',
-      level: 'beginner',
-      createdByUserId: 3,
-    });
-
-    await expect(
-      service.update(
-        '1',
-        { level: 'advanced' },
-        { id: 2, email: 'teacher@example.com', role: UserRole.TEACHER },
-      ),
-    ).rejects.toThrow(ForbiddenException);
-    expect(coursesRepository.save).not.toHaveBeenCalled();
-  });
-
-  it('allows the owning teacher to update their course', async () => {
-    coursesRepository.findOneBy.mockResolvedValue({
-      id: 1,
-      title: 'Course',
-      level: 'beginner',
-      createdByUserId: 2,
-    });
-
-    await service.update(
-      '1',
-      { level: 'advanced' },
-      { id: 2, email: 'teacher@example.com', role: UserRole.TEACHER },
-    );
-
-    expect(coursesRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1, level: 'advanced' }),
-    );
   });
 });

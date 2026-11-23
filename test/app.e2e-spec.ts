@@ -131,6 +131,24 @@ describe('AppController (e2e)', () => {
       .expect(404);
   });
 
+  it('/courses/:id (PATCH) returns a consistent 400 for an invalid identifier', async () => {
+    const response = await request(app.getHttpServer())
+      .patch('/courses/not-a-number')
+      .set('Authorization', adminAuthorization)
+      .send({ level: 'advanced' })
+      .expect(400);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        statusCode: 400,
+        path: '/courses/not-a-number',
+        timestamp: expect.any(String),
+        message: expect.any(String),
+      }),
+    );
+    expect(response.body.stack).toBeUndefined();
+  });
+
   it('/courses/:id (DELETE) removes a course and rejects repeated requests', async () => {
     const server = app.getHttpServer();
 

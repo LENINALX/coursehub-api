@@ -13,10 +13,30 @@ import { EnrollmentsService } from './enrollments.service.js';
 describe('EnrollmentsService', () => {
   let studentsRepository: Pick<Repository<Student>, 'findOneBy'>;
   let coursesRepository: Pick<Repository<Course>, 'findOneBy'>;
-  let enrollmentsRepository: Pick<
-    Repository<Enrollment>,
-    'findOne' | 'create' | 'save' | 'find' | 'findOneBy' | 'remove'
-  >;
+  let enrollmentsRepository: Omit<
+    Pick<
+      Repository<Enrollment>,
+      | 'findOne'
+      | 'create'
+      | 'save'
+      | 'find'
+      | 'findOneBy'
+      | 'remove'
+      | 'createQueryBuilder'
+    >,
+    'create' | 'createQueryBuilder'
+  > & {
+    create: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+  };
+  let queryBuilder: {
+    leftJoinAndSelect: ReturnType<typeof vi.fn>;
+    andWhere: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+    skip: ReturnType<typeof vi.fn>;
+    take: ReturnType<typeof vi.fn>;
+    getManyAndCount: ReturnType<typeof vi.fn>;
+  };
   let service: EnrollmentsService;
 
   beforeEach(() => {
@@ -26,9 +46,22 @@ describe('EnrollmentsService', () => {
     coursesRepository = {
       findOneBy: vi.fn().mockResolvedValue({ id: 1 }),
     };
+    queryBuilder = {
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      getManyAndCount: vi.fn(),
+    };
     enrollmentsRepository = {
       findOne: vi.fn().mockResolvedValue(null),
-      create: vi.fn(({ student, course }) => ({ student, course })),
+      create: vi.fn().mockImplementation(
+        (values: { student: Student; course: Course }) => ({
+          student: values.student,
+          course: values.course,
+        }),
+      ),
       save: vi.fn().mockImplementation(async (enrollment) => ({
         id: 1,
         ...enrollment,
@@ -36,9 +69,10 @@ describe('EnrollmentsService', () => {
       find: vi.fn().mockResolvedValue([]),
       findOneBy: vi.fn(),
       remove: vi.fn().mockImplementation(async (enrollment) => enrollment),
+      createQueryBuilder: vi.fn().mockReturnValue(queryBuilder),
     };
     service = new EnrollmentsService(
-      enrollmentsRepository as Repository<Enrollment>,
+      enrollmentsRepository as unknown as Repository<Enrollment>,
       studentsRepository as Repository<Student>,
       coursesRepository as Repository<Course>,
     );
@@ -89,18 +123,29 @@ describe('EnrollmentsService', () => {
 
   it('filters and removes enrollments', async () => {
     const matchingEnrollment = { id: 2 } as Enrollment;
-    vi.mocked(enrollmentsRepository.find).mockResolvedValue([
-      matchingEnrollment,
+    vi.mocked(queryBuilder.getManyAndCount).mockResolvedValue([
+      [matchingEnrollment],
+      1,
     ]);
 
     await expect(
-      service.findAll({ studentId: '1', courseId: '2' }),
-    ).resolves.toEqual([matchingEnrollment]);
-    expect(enrollmentsRepository.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { student: { id: 1 }, course: { id: 2 } },
-      }),
+      service.findAll({ studentId: '1', courseId: '2', page: 1, limit: 10 }),
+    ).resolves.toEqual({
+      items: [matchingEnrollment],
+      meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    });
+    expect(queryBuilder.andWhere).toHaveBeenNthCalledWith(
+      1,
+      'student.id = :studentId',
+      { studentId: 1 },
     );
+    expect(queryBuilder.andWhere).toHaveBeenNthCalledWith(
+      2,
+      'course.id = :courseId',
+      { courseId: 2 },
+    );
+    expect(queryBuilder.skip).toHaveBeenCalledWith(0);
+    expect(queryBuilder.take).toHaveBeenCalledWith(10);
 
     vi.mocked(enrollmentsRepository.findOneBy).mockResolvedValue(
       matchingEnrollment,

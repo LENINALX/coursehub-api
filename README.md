@@ -320,6 +320,44 @@ Como TypeORM solo sincroniza en desarrollo, aplica
 en cada entorno antes de desplegar, por ejemplo con
 `psql "$DATABASE_URL" -f database/migrations/20261117_roles_and_course_ownership.sql`.
 
+## Arquitectura y componentes transversales
+
+Las rutas de los controladores usan `RequestLoggerMiddleware` para registrar
+solo método, ruta sin query string, estado HTTP y duración. No registra
+encabezados, tokens, contraseñas ni cuerpos de petición.
+
+`HttpErrorFilter` da a las excepciones HTTP una respuesta consistente:
+
+```json
+{
+  "statusCode": 404,
+  "timestamp": "2026-11-22T00:00:00.000Z",
+  "path": "/courses/404",
+  "message": "Course 404 not found"
+}
+```
+
+Los errores inesperados se registran en el servidor, pero la respuesta solo
+incluye `Internal server error`; nunca se envían stack traces ni detalles de
+persistencia al cliente. `RequestTimingInterceptor` registra la duración de la
+ejecución del controlador, también sin incluir datos sensibles.
+
+La validación y conversión global de DTOs se configura con `ValidationPipe`.
+`ParseIntPipe` valida el identificador de `PATCH /courses/:id`; un identificador
+no numérico responde `400`, un curso inexistente `404` y una actualización
+prohibida `403`.
+
+La actualización de cursos sigue estas responsabilidades:
+
+```text
+CoursesController → UpdateCourseUseCase → CourseRepository → TypeOrmCourseRepository → PostgreSQL
+```
+
+El controlador conserva HTTP, el caso de uso contiene la regla de propiedad, el
+puerto declara solo `findById` y `save`, y el adaptador implementa esas
+operaciones usando TypeORM. La regla de propiedad permanece en el caso de uso,
+independiente del mecanismo de persistencia.
+
 ## Project setup
 
 ```bash
@@ -350,6 +388,23 @@ $ npm run test:e2e
 
 # test coverage
 $ npm run test:cov
+```
+
+### Pruebas unitarias de la actualización de cursos
+
+La lógica de `PATCH /courses/:id` se prueba de forma aislada con Vitest y un
+repositorio falso. Las pruebas cubren la actualización permitida, el rechazo a
+un docente que no es propietario (sin guardar cambios), el permiso de
+administración y el curso inexistente. La prueba del controlador verifica que
+delegue el ID, el DTO y la identidad autenticada al caso de uso y propague sus
+errores.
+
+Estas pruebas no inician PostgreSQL ni hacen peticiones HTTP. Vitest es el
+ejecutor que ya utiliza el proyecto; no es necesario instalar Jest para
+ejecutarlas:
+
+```bash
+npm test -- src/courses/use-cases/update-course.use-case.spec.ts src/courses/courses.controller.spec.ts
 ```
 
 ## Deployment

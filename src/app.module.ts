@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import Joi from 'joi';
 import { CoursesModule } from './courses/courses.module.js';
@@ -13,6 +13,15 @@ import { AuthModule } from './auth/auth.module.js';
 import { User } from './users/entities/user.entity.js';
 import { UsersModule } from './users/users.module.js';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AppController } from './app.controller.js';
+import { AuthController } from './auth/auth.controller.js';
+import { HttpErrorFilter } from './common/filters/http-error.filter.js';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
+import { RequestTimingInterceptor } from './common/interceptors/request-timing.interceptor.js';
+import { CoursesController } from './courses/courses.controller.js';
+import { EnrollmentsController } from './enrollments/enrollments.controller.js';
+import { StudentsController } from './students/students.controller.js';
+import { WelcomeController } from './welcome.controller.js';
 
 @Module({
   imports: [
@@ -22,7 +31,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
         NODE_ENV: Joi.string()
           .valid('development', 'test', 'production')
           .default('development'),
-        PORT: Joi.number().port().default(3000),
+        PORT: Joi.number().port().default(3001),
         DATABASE_HOST: Joi.string().required(),
         DATABASE_PORT: Joi.number().port().default(5432),
         DATABASE_NAME: Joi.string().required(),
@@ -39,7 +48,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'postgres', host: config.getOrThrow<string>('DATABASE_HOST'),
+        type: 'postgres',
+        host: config.getOrThrow<string>('DATABASE_HOST'),
         port: config.getOrThrow<number>('DATABASE_PORT'),
         username: config.getOrThrow('DATABASE_USER'),
         password: config.getOrThrow('DATABASE_PASSWORD'),
@@ -54,6 +64,24 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     UsersModule,
     AuthModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_FILTER, useClass: HttpErrorFilter },
+    { provide: APP_INTERCEPTOR, useClass: RequestTimingInterceptor },
+    RequestLoggerMiddleware,
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestLoggerMiddleware)
+      .forRoutes(
+        AppController,
+        AuthController,
+        CoursesController,
+        EnrollmentsController,
+        StudentsController,
+        WelcomeController,
+      );
+  }
+}
