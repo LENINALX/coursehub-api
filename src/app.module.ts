@@ -22,6 +22,8 @@ import { CoursesController } from './courses/courses.controller.js';
 import { EnrollmentsController } from './enrollments/enrollments.controller.js';
 import { StudentsController } from './students/students.controller.js';
 import { WelcomeController } from './welcome.controller.js';
+import { AppService } from './app.service.js';
+import { WelcomeService } from './welcome.service.js';
 
 @Module({
   imports: [
@@ -64,11 +66,14 @@ import { WelcomeController } from './welcome.controller.js';
     UsersModule,
     AuthModule,
   ],
+  controllers: [AppController, WelcomeController],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: HttpErrorFilter },
     { provide: APP_INTERCEPTOR, useClass: RequestTimingInterceptor },
     RequestLoggerMiddleware,
+    AppService,
+    WelcomeService,
   ],
 })
 export class AppModule implements NestModule {

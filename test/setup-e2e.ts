@@ -1,0 +1,9 @@
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_HOST = '127.0.0.1';
+process.env.DATABASE_PORT = '5432';
+process.env.DATABASE_NAME = 'coursehub_e2e';
+process.env.DATABASE_USER = 'coursehub_e2e';
+process.env.DATABASE_PASSWORD = 'test-only';
+process.env.JWT_SECRET = 'e2e-test-secret-with-at-least-32-characters';
+process.env.JWT_EXPIRES_IN = '15m';
+process.env.CORS_ORIGINS = 'http://localhost:5173';

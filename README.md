@@ -407,6 +407,26 @@ ejecutarlas:
 npm test -- src/courses/use-cases/update-course.use-case.spec.ts src/courses/courses.controller.spec.ts
 ```
 
+### Pruebas de integración HTTP / E2E
+
+Como continuación de las pruebas unitarias, la suite E2E levanta la aplicación
+NestJS y envía solicitudes HTTP con Supertest. Cubre autenticación JWT,
+autorización por rol y propiedad, validación de DTOs, errores HTTP, estudiantes
+y matrículas. Las pruebas sustituyen DataSource y repositorios TypeORM con
+implementaciones en memoria; no se conectan a PostgreSQL ni cambian datos del
+archivo `.env` local.
+
+Ejecuta la suite desde la raíz de `coursehub-api`:
+
+```bash
+npm run test:e2e -- --reporter=verbose
+```
+
+La configuración de pruebas asigna variables de entorno exclusivas para
+`NODE_ENV=test`; las credenciales de prueba no se usan al iniciar la aplicación
+normalmente. Usa `npm test` para las pruebas unitarias y el comando anterior
+para los flujos HTTP de extremo a extremo.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
